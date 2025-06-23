@@ -25,6 +25,7 @@
   </div>
 
   <button id="refresh-btn">Refresh Data</button>
+  <button id="download-btn" style="background: #4caf50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Download Data</button>
 
   <script>
 
@@ -96,6 +97,22 @@
     
     // Refresh button
     document.getElementById('refresh-btn').addEventListener('click', fetchData);
+    
+    // Download button
+    document.getElementById('download-btn').addEventListener('click', downloadData);
+    
+    function downloadData() {
+      const content = document.getElementById('newsletter-content').innerText;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'quarterly-earnings.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   </script>
 </body>
 </html>

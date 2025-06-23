@@ -1,0 +1,32 @@
+{
+  "name": "kkk",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "npm install --omit=dev",
+    "dev": "nodemon server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.7",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maximusdecimusmeridiu/Quaterly-Earnings.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maximusdecimusmeridiu/Quaterly-Earnings/issues"
+  },
+  "homepage": "https://github.com/maximusdecimusmeridiu/Quaterly-Earnings#readme"
+}

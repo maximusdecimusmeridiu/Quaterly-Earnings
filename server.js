@@ -1,136 +1,63 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Earnings Dashboard</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 20px;
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 5001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Configuration
+const GROQ_CONFIG = {
+  endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+  apiKey: process.env.GROQ_API_KEY,
+  model: 'Compound-Beta-Mini',
+  maxTokens: 2000,
+  temperature: 0.7
+};
+
+// Validate API Key
+if (!process.env.GROQ_API_KEY) {
+  console.error('❌ Missing GROQ_API_KEY in environment variables');
+  process.exit(1);
+}
+
+// API Endpoint
+app.post('/fetch-earnings', async (req, res) => {
+  try {
+    const { companies } = req.body;
+    if (!companies || !Array.isArray(companies) || companies.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid company list provided' });
     }
-    .debug-panel {
-      background: #f5f5f5;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 5px;
-      font-family: monospace;
-    }
-    .company-card {
-      background: white;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    .error {
-      background: #ffebee;
-      color: #d32f2f;
-      padding: 15px;
-      border-radius: 5px;
-    }
-    #refresh-btn, #download-btn {
-      background: #6c757d;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #refresh-btn {
-      background: #1976d2;
-    }
-    #download-btn {
-      background: #28a745;
-    }
-  </style>
-</head>
-<body>
-  <h1>Corporate Earnings Dashboard</h1>
-  
-  <div class="debug-panel">
-    <h3>Request Status</h3>
-    <div id="debug-info">Initializing...</div>
-  </div>
 
-  <div id="newsletter-content">
-    <p>Loading data from the server...</p>
-  </div>
+    const prompt = `Generate HTML-formatted earnings data for: ${companies.join(', ')}.`;
 
-  <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button id="refresh-btn">🔄 Refresh Data</button>
-    <button id="download-btn">📥 Download Report</button>
-  </div>
-
-  <script>
-    async function fetchData() {
-      const debugEl = document.getElementById('debug-info');
-      const contentEl = document.getElementById('newsletter-content');
-      
-      debugEl.innerHTML = '<span style="color: #ff9800">⏳ Sending request to server...</span>';
-      contentEl.innerHTML = '<p>Loading latest earnings data...</p>';
-
-      try {
-        const response = await fetch('https://quaterly-earnings-7jk2.onrender.com/fetch-earnings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companies: [
-              "Southwest Airlines",
-              "Prudential",
-              "Fannie Mae",
-              "RTX",
-              "Vocalink (Mastercard)",
-              "JPMorgan Chase",
-              "CNA Insurance",
-              "Takeda Pharmaceuticals",
-              "SMBC",
-              "Ford"
-            ]
-          })
-        });
-
-        const data = await response.json();
-
-        debugEl.innerHTML = `
-          <span style="color: ${response.ok ? '#4caf50' : '#f44336'}">
-            ${response.ok ? '✅' : '❌'} Request completed successfully
-          </span><br>
-          Status: ${response.status}<br>
-        `;
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || 'Unknown server error');
-        }
-
-        contentEl.innerHTML = data.htmlContent || '<p class="error">No data returned from API</p>';
-      } catch (error) {
-        console.error('Frontend Error:', error);
-        debugEl.innerHTML += `<br><span style="color: #f44336">💥 ${error.message}</span>`;
-        contentEl.innerHTML = `
-          <div class="error">
-            <h3>Data Load Failed</h3>
-            <p>${error.message}</p>
-          </div>
-        `;
+    const response = await axios.post(
+      GROQ_CONFIG.endpoint,
+      {
+        model: GROQ_CONFIG.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: GROQ_CONFIG.maxTokens,
+        temperature: GROQ_CONFIG.temperature
+      },
+      {
+        headers: { Authorization: `Bearer ${GROQ_CONFIG.apiKey}` }
       }
-    }
+    );
 
-    function downloadData() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      const content = document.getElementById('newsletter-content');
-      doc.text(content.innerText, 10, 10);
-      doc.save(`Earnings_Report_${Date.now()}.pdf`);
-    }
+    const content = response.data.choices[0]?.message?.content || 'No content generated';
+    res.json({ success: true, htmlContent: content });
 
-    document.getElementById('refresh-btn').addEventListener('click', fetchData);
-    document.getElementById('download-btn').addEventListener('click', downloadData);
+  } catch (error) {
+    console.error('Error fetching data:', error.message);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
 
-    fetchData();
-  </script>
-</body>
-</html>
+// Start Server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});

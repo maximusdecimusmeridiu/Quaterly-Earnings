@@ -179,11 +179,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Serve the main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
 // Start the server
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);

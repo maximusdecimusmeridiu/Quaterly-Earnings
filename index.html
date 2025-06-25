@@ -74,7 +74,7 @@
       contentEl.innerHTML = '<p>Loading latest earnings data...</p>';
 
       try {
-        const response = await fetch('https://quaterly-earnings-7jk2.onrender.com', {
+        const response = await fetch('https://quaterly-earnings-7jk2.onrender.com/fetch-earnings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

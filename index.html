@@ -123,8 +123,22 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const content = document.getElementById('newsletter-content');
-      doc.text(content.innerText, 10, 10);
-      doc.save(`Earnings_Report_${Date.now()}.pdf`);
+
+      // Add title
+      doc.setFontSize(22);
+      doc.text('Quarterly Earnings Report', 105, 20, { align: 'center' });
+
+      // Add current date
+      doc.setFontSize(12);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 30, { align: 'center' });
+
+      // Add content
+      const text = content.innerText;
+      const splitText = doc.splitTextToSize(text, 170);
+      doc.text(splitText, 20, 40);
+
+      // Save the PDF
+      doc.save('quarterly-earnings-report.pdf');
     }
 
     document.getElementById('refresh-btn').addEventListener('click', fetchData);

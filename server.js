@@ -1,190 +1,136 @@
-require('dotenv').config();
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const path = require('path');
-
-const app = express();
-const PORT = process.env.PORT || 5001;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
-
-// Load environment variables
-require('dotenv').config({ path: 'config.env' });
-
-// Configuration
-const GROQ_CONFIG = {
-  endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-  model: 'Compound-Beta-Mini',
-  maxTokens: 2000,
-  temperature: 0.7,
-  topP: 1,
-  frequencyPenalty: 0,
-  presencePenalty: 0,
-  apiKey: process.env.GROQ_API_KEY
-};
-
-// Validate configuration
-if (!process.env.GROQ_API_KEY) {
-  console.error('❌ ERROR: GROQ_API_KEY is not set in .env file');
-  process.exit(1);
-}
-
-// Get current quarter and year
-function getCurrentQuarter() {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  
-  let quarter;
-  if (month >= 0 && month <= 2) quarter = 1;
-  else if (month >= 3 && month <= 5) quarter = 2;
-  else if (month >= 6 && month <= 8) quarter = 3;
-  else quarter = 4;
-  
-  return { quarter, year };
-}
-
-// API Endpoint to fetch earnings data
-app.post('/fetch-earnings', async (req, res) => {
-  const debugId = `req-${Date.now().toString().slice(-6)}`;
-  
-  try {
-    console.log(`[${debugId}] Starting request with companies:`, req.body.companies);
-    
-    if (!req.body.companies || !Array.isArray(req.body.companies) || req.body.companies.length === 0) {
-      console.error(`[${debugId}] Invalid companies list`);
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide a valid array of company names'
-      });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earnings Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
     }
-
-    // Limit the number of companies to prevent abuse
-    const MAX_COMPANIES = 10;
-    const companies = req.body.companies.slice(0, MAX_COMPANIES);
-    
-    if (companies.length < req.body.companies.length) {
-      console.warn(`[${debugId}] Too many companies, limiting to first ${MAX_COMPANIES}`);
+    .debug-panel {
+      background: #f5f5f5;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      font-family: monospace;
     }
+    .company-card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .error {
+      background: #ffebee;
+      color: #d32f2f;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    #refresh-btn, #download-btn {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #refresh-btn {
+      background: #1976d2;
+    }
+    #download-btn {
+      background: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <h1>Corporate Earnings Dashboard</h1>
+  
+  <div class="debug-panel">
+    <h3>Request Status</h3>
+    <div id="debug-info">Initializing...</div>
+  </div>
 
-    console.log(`[${debugId}] Processing ${companies.length} companies`);
+  <div id="newsletter-content">
+    <p>Loading data from the server...</p>
+  </div>
 
-    // Get current date for the prompt
-    const currentDate = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
-    // Prepare the prompt for Groq
-    const prompt = `Generate HTML-formatted quarterly earnings reports for ${req.body.companies.join(", ")} using only officially released and publicly available data as of today (${currentDate}). 
-For each company, provide only information that has been officially released in their earnings reports or SEC filings:
-- Most recent available quarterly earnings data (revenue and EPS)
-- Any officially announced key investments or strategic moves
-- Year-over-year comparisons using only released data
-- Big bets and major investments
+  <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+    <button id="refresh-btn">🔄 Refresh Data</button>
+    <button id="download-btn">📥 Download Report</button>
+  </div>
 
-If data for the current quarter is not yet released, use the most recent available quarter's data.
-Clearly indicate the time period for each data point.
+  <script>
+    async function fetchData() {
+      const debugEl = document.getElementById('debug-info');
+      const contentEl = document.getElementById('newsletter-content');
+      
+      debugEl.innerHTML = '<span style="color: #ff9800">⏳ Sending request to server...</span>';
+      contentEl.innerHTML = '<p>Loading latest earnings data...</p>';
 
-Format as:
-<div class="company-card">
-  <h3>{Company Name} (Ticker: {Ticker Symbol})</h3>
-  <p><strong>Latest Available Earnings:</strong> 
-    {Quarter and Year} | ${'$'}{X.XXB} | EPS: ${'$'}{X.XX} (Released: {Date if available})
-  </p>
-  <p><strong>Previous Quarter:</strong> 
-    {Quarter and Year} | Revenue: ${'$'}{X.XXB} | EPS: ${'$'}{X.XX}
-  </p>
-  <p><strong>YoY Growth (if available):</strong> X.X%</p>
-  <p><strong>Recent Developments:</strong> {Only include officially announced information with dates if available}</p>
-  <p><strong>Big Bets & Investments:</strong> {List any major investments or strategic initiatives with dates if available}</p>
-  <p class="data-source">Source: {Provide source and date of information, e.g., 'Q2 2025 Earnings Release (MM/DD/YYYY)'}</p>
-</div>
+      try {
+        const response = await fetch('https://quaterly-earnings-7jk2.onrender.com/fetch-earnings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companies: [
+              "Southwest Airlines",
+              "Prudential",
+              "Fannie Mae",
+              "RTX",
+              "Vocalink (Mastercard)",
+              "JPMorgan Chase",
+              "CNA Insurance",
+              "Takeda Pharmaceuticals",
+              "SMBC",
+              "Ford"
+            ]
+          })
+        });
 
-If no official data is available for a company, clearly state: 'No official earnings data available after {last known date of data}'.
+        const data = await response.json();
 
-Include any relevant links to official press releases or SEC filings at the end of each company's section.`;
+        debugEl.innerHTML = `
+          <span style="color: ${response.ok ? '#4caf50' : '#f44336'}">
+            ${response.ok ? '✅' : '❌'} Request completed successfully
+          </span><br>
+          Status: ${response.status}<br>
+        `;
 
-    console.log(`[${debugId}] Sending request to Groq API...`);
-    
-    const response = await axios.post(
-      GROQ_CONFIG.endpoint,
-      {
-        model: GROQ_CONFIG.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a financial analyst providing detailed earnings reports for public companies.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: GROQ_CONFIG.maxTokens,
-        temperature: GROQ_CONFIG.temperature,
-        top_p: GROQ_CONFIG.topP,
-        frequency_penalty: GROQ_CONFIG.frequencyPenalty,
-        presence_penalty: GROQ_CONFIG.presencePenalty
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_CONFIG.apiKey}`
-        },
-        timeout: 60000 // 60 seconds timeout
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Unknown server error');
+        }
+
+        contentEl.innerHTML = data.htmlContent || '<p class="error">No data returned from API</p>';
+      } catch (error) {
+        console.error('Frontend Error:', error);
+        debugEl.innerHTML += `<br><span style="color: #f44336">💥 ${error.message}</span>`;
+        contentEl.innerHTML = `
+          <div class="error">
+            <h3>Data Load Failed</h3>
+            <p>${error.message}</p>
+          </div>
+        `;
       }
-    );
-
-    console.log(`[${debugId}] Successfully received response from Groq`);
-    
-    const content = response.data.choices[0]?.message?.content;
-    
-    if (!content) {
-      throw new Error('No content in response from Groq API');
     }
 
-    // Send response
-    res.json({
-      success: true,
-      htmlContent: content,
-      debugId
-    });
+    function downloadData() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const content = document.getElementById('newsletter-content');
+      doc.text(content.innerText, 10, 10);
+      doc.save(`Earnings_Report_${Date.now()}.pdf`);
+    }
 
-  } catch (error) {
-    console.error(`[${debugId}] Error:`, error.message);
-    console.error('Error details:', error.response?.data || error.stack);
-    
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch earnings data',
-      details: error.message,
-      debugId
-    });
-  }
-});
+    document.getElementById('refresh-btn').addEventListener('click', fetchData);
+    document.getElementById('download-btn').addEventListener('click', downloadData);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    service: 'Earnings Report API',
-    version: '1.0.0'
-  });
-});
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
-  console.log(`🌐 http://localhost:${PORT}`);
-  console.log(`\n📊 Available Endpoints:`);
-  console.log(`   GET  /              - Serve the web interface`);
-  console.log(`   POST /fetch-earnings - Fetch earnings data`);
-  console.log(`   GET  /health        - Check server status`);
-});
+    fetchData();
+  </script>
+</body>
+</html>

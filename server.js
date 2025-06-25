@@ -73,20 +73,42 @@ app.post('/fetch-earnings', async (req, res) => {
 
     console.log(`[${debugId}] Processing ${companies.length} companies`);
 
-    // Get current quarter and year
-    const { quarter, year } = getCurrentQuarter();
+    // Get current date for the prompt
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
     
     // Prepare the prompt for Groq
-    const prompt = `Generate a detailed earnings report for the following companies for Q${quarter} ${year}. 
-    For each company, provide:
-    1. Revenue and earnings (actual vs. estimates)
-    2. Key business highlights
-    3. Management commentary
-    4. Future outlook
-    
-    Companies: ${companies.join(', ')}
-    
-    Format the response in HTML with proper styling.`;
+    const prompt = `Generate HTML-formatted quarterly earnings reports for ${req.body.companies.join(", ")} using only officially released and publicly available data as of today (${currentDate}). 
+For each company, provide only information that has been officially released in their earnings reports or SEC filings:
+- Most recent available quarterly earnings data (revenue and EPS)
+- Any officially announced key investments or strategic moves
+- Year-over-year comparisons using only released data
+- Big bets and major investments
+
+If data for the current quarter is not yet released, use the most recent available quarter's data.
+Clearly indicate the time period for each data point.
+
+Format as:
+<div class="company-card">
+  <h3>{Company Name} (Ticker: {Ticker Symbol})</h3>
+  <p><strong>Latest Available Earnings:</strong> 
+    {Quarter and Year} | ${'$'}{X.XXB} | EPS: ${'$'}{X.XX} (Released: {Date if available})
+  </p>
+  <p><strong>Previous Quarter:</strong> 
+    {Quarter and Year} | Revenue: ${'$'}{X.XXB} | EPS: ${'$'}{X.XX}
+  </p>
+  <p><strong>YoY Growth (if available):</strong> X.X%</p>
+  <p><strong>Recent Developments:</strong> {Only include officially announced information with dates if available}</p>
+  <p><strong>Big Bets & Investments:</strong> {List any major investments or strategic initiatives with dates if available}</p>
+  <p class="data-source">Source: {Provide source and date of information, e.g., 'Q2 2025 Earnings Release (MM/DD/YYYY)'}</p>
+</div>
+
+If no official data is available for a company, clearly state: 'No official earnings data available after {last known date of data}'.
+
+Include any relevant links to official press releases or SEC filings at the end of each company's section.`;
 
     console.log(`[${debugId}] Sending request to Groq API...`);
     

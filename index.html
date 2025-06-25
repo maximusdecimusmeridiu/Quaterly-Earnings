@@ -6,11 +6,46 @@
   <title>Earnings Dashboard</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
-    .debug-panel { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; font-family: monospace; }
-    .company-card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .error { background: #ffebee; color: #d32f2f; padding: 15px; border-radius: 5px; }
-    #refresh-btn { background: #1976d2; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .debug-panel {
+      background: #f5f5f5;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      font-family: monospace;
+    }
+    .company-card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .error {
+      background: #ffebee;
+      color: #d32f2f;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    #refresh-btn, #download-btn {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #refresh-btn {
+      background: #1976d2;
+    }
+    #download-btn {
+      background: #28a745;
+    }
   </style>
 </head>
 <body>
@@ -25,38 +60,12 @@
     <p>Loading data from Groq API...</p>
   </div>
 
-
   <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button 
-      id="refresh-btn" 
-      style="
-        background: #6c757d;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
-      "
-    >
-      🔄 Refresh Data
-    </button>
-    <button 
-      id="download-btn" 
-      style="
-        background: #28a745;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
-      "
-    >
-      📥 Download Report
-    </button>
+    <button id="refresh-btn">🔄 Refresh Data</button>
+    <button id="download-btn">📥 Download Report</button>
   </div>
 
   <script>
-
     async function fetchData() {
       const debugEl = document.getElementById('debug-info');
       const contentEl = document.getElementById('newsletter-content');
@@ -120,145 +129,34 @@
       }
     }
 
-    // Initial load
-    fetchData();
-    
-    // Refresh button
-    document.getElementById('refresh-btn').addEventListener('click', fetchData);
-    
-    // Download button
-    document.getElementById('download-btn').addEventListener('click', downloadData);
-    
     function downloadData() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const content = document.getElementById('newsletter-content');
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
-      const maxWidth = pageWidth - (2 * margin);
-      
-      // Add logo or header
-      doc.setFontSize(24);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(33, 150, 243);
+
+      doc.setFontSize(24).setFont('helvetica', 'bold').setTextColor(33, 150, 243);
       doc.text('Quarterly Earnings Report', pageWidth / 2, 20, { align: 'center' });
-      
-      // Add subtitle with date
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
+
+      doc.setFontSize(12).setFont('helvetica', 'normal').setTextColor(100);
       doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 30, { align: 'center' });
-      
-      // Add a decorative line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(margin, 40, pageWidth - margin, 40);
-      
-      // Process and add content with formatting
-      let yPos = 50;
-      const processNode = (node, indent = 0) => {
-        const indentMargin = margin + (indent * 10);
-        
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent.trim();
-          if (text) {
-            const lines = doc.splitTextToSize(text, maxWidth - (indent * 10));
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(30);
-            doc.text(lines, indentMargin, yPos);
-            yPos += lines.length * 7;
-          }
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          // Handle different HTML elements
-          switch (node.tagName.toLowerCase()) {
-            case 'h1':
-            case 'h2':
-            case 'h3':
-              const level = parseInt(node.tagName[1]);
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(14 - (level * 2));
-              doc.setTextColor(33, 150, 243);
-              const headerText = node.textContent.trim();
-              doc.text(headerText, indentMargin, yPos + 5);
-              yPos += 10;
-              break;
-              
-            case 'p':
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(10);
-              doc.setTextColor(30);
-              const text = node.textContent.trim();
-              if (text) {
-                const lines = doc.splitTextToSize(text, maxWidth - (indent * 10));
-                doc.text(lines, indentMargin, yPos);
-                yPos += lines.length * 7;
-              }
-              yPos += 5; // Add some space after paragraphs
-              break;
-              
-            case 'ul':
-            case 'ol':
-              Array.from(node.children).forEach((li, index) => {
-                const bullet = node.tagName.toLowerCase() === 'ol' ? `${index + 1}. ` : '• ';
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(10);
-                doc.text(bullet, indentMargin, yPos);
-                const textWidth = doc.getTextWidth(bullet);
-                const liText = li.textContent.trim();
-                const lines = doc.splitTextToSize(liText, maxWidth - (indent * 10) - textWidth);
-                doc.text(lines, indentMargin + textWidth, yPos);
-                yPos += Math.max(lines.length * 7, 10);
-              });
-              yPos += 3; // Add some space after lists
-              break;
-              
-            case 'div':
-            case 'span':
-              // Process children recursively
-              Array.from(node.childNodes).forEach(child => processNode(child, indent));
-              break;
-          }
+
+      let yPos = 40;
+      content.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          doc.setFontSize(10).setTextColor(30).text(node.textContent.trim(), margin, yPos);
+          yPos += 10;
         }
-        
-        // Add new page if needed
-        if (yPos > doc.internal.pageSize.getHeight() - 20) {
-          doc.addPage();
-          yPos = 20;
-        }
-      };
-      
-      // Process all content nodes
-      Array.from(content.childNodes).forEach(node => processNode(node));
-      
-      // Add page numbers
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(
-          `Page ${i} of ${pageCount}`,
-          pageWidth - margin,
-          doc.internal.pageSize.getHeight() - 10,
-          { align: 'right' }
-        );
-      }
-      
-      // Add watermark
-      doc.setGState(doc.GState({ opacity: 0.1 }));
-      doc.setFontSize(60);
-      doc.setTextColor(200);
-      doc.setFont('helvetica', 'bold');
-      doc.text('CONFIDENTIAL', pageWidth / 2, doc.internal.pageSize.getHeight() / 2, {
-        angle: 45,
-        align: 'center',
-        baseline: 'middle'
       });
-      
-      // Save the PDF with a timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      doc.save(`Earnings-Report-${timestamp}.pdf`);
+
+      doc.save(`Earnings_Report_${Date.now()}.pdf`);
     }
+
+    document.getElementById('refresh-btn').addEventListener('click', fetchData);
+    document.getElementById('download-btn').addEventListener('click', downloadData);
+
+    fetchData();
   </script>
 </body>
 </html>

@@ -15,7 +15,7 @@ app.use(express.static('public'));
 // Configuration
 const GROQ_CONFIG = {
   endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-  model: 'Coumpound-Beta-Mini',
+  model: 'Compound-Beta-Mini',
   maxTokens: 4000,
   temperature: 0.2,
   topP: 0.9,
